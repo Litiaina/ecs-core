@@ -46,38 +46,32 @@ network / file / memory
 ## Encoding
 
 ```rust,no_run
-use ecs_core::{
-    EcLayout, EncodeOptions, ErasureStreamEncoder, ShardWriters,
-};
+use ecs_core::{EcLayout, EncodeOptions, ErasureStreamEncoder, ShardWriters};
 use tokio::fs::File;
 
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
-let layout = EcLayout::new(3, 1, 1024 * 1024)?;
-let source_size = 10 * 1024 * 1024;
+    let layout = EcLayout::new(3, 1, 1024 * 1024)?;
+    let source_size = 10 * 1024 * 1024;
 
-// ECS Core does not choose these paths. The engine supplies temporary sinks.
-let writers = ShardWriters::new(
-    vec![
-        Some(File::create("data-0.tmp").await?),
-        Some(File::create("data-1.tmp").await?),
-        Some(File::create("data-2.tmp").await?),
-    ],
-    vec![Some(File::create("parity-0.tmp").await?)],
-);
+    // ECS Core does not choose these paths. The engine supplies temporary sinks.
+    let writers = ShardWriters::new(
+        vec![
+            Some(File::create("data-0.tmp").await?),
+            Some(File::create("data-1.tmp").await?),
+            Some(File::create("data-2.tmp").await?),
+        ],
+        vec![Some(File::create("parity-0.tmp").await?)],
+    );
 
-let mut encoder = ErasureStreamEncoder::new(
-    layout,
-    writers,
-    source_size,
-    EncodeOptions::default(),
-)?;
-let mut source = File::open("object.bin").await?;
-encoder.copy_exact(&mut source).await?;
-let output = encoder.finish().await?;
+    let mut encoder =
+        ErasureStreamEncoder::new(layout, writers, source_size, EncodeOptions::default())?;
+    let mut source = File::open("object.bin").await?;
+    encoder.copy_exact(&mut source).await?;
+    let output = encoder.finish().await?;
 
-assert!(output.report.fully_protected);
-// The caller now syncs returned files, commits metadata, and atomically publishes.
-Ok(())
+    assert!(output.report.fully_protected);
+    // The caller now syncs returned files, commits metadata, and atomically publishes.
+    Ok(())
 }
 ```
 
