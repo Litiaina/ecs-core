@@ -1,0 +1,5 @@
+ECS Core includes a byte-identical vendored copy of simd-erasure-core.
+
+The vendored codec contains work by Anders Trier Olesen and Markus Laire
+under the MIT License and is based on Leopard code by Christopher A. Taylor
+under the BSD-3-Clause License. See LICENSES/SIMD_ERASURE_CORE_LICENSE.
