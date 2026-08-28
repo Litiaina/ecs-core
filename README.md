@@ -51,7 +51,7 @@ use ecs_core::{
 };
 use tokio::fs::File;
 
-# async fn run() -> Result<(), Box<dyn std::error::Error>> {
+async fn run() -> Result<(), Box<dyn std::error::Error>> {
 let layout = EcLayout::new(3, 1, 1024 * 1024)?;
 let source_size = 10 * 1024 * 1024;
 
@@ -77,8 +77,8 @@ let output = encoder.finish().await?;
 
 assert!(output.report.fully_protected);
 // The caller now syncs returned files, commits metadata, and atomically publishes.
-# Ok(())
-# }
+Ok(())
+}
 ```
 
 `ErasureStreamEncoder::write` accepts arbitrary client chunks. `copy_exact` pipes an `AsyncRead` directly into the same bounded encoder. Only one aligned stripe is buffered, independent of total object size.
