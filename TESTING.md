@@ -55,6 +55,24 @@ cargo bench -p ecs-core --bench streaming
 
 The vendored codec is kept byte-identical to its N1/N2 source. Its own upstream test suite is run separately because its historical lint policy is independent from the ECS wrapper.
 
+## Explicit real-disk gate
+
+The ignored real-disk test refuses to run unless exactly four caller-owned
+paths on four distinct devices are supplied. It creates unique temporary
+subdirectories, encodes a strict `3+1` stream, syncs and atomically publishes
+all pieces, decodes with every single missing-piece position, repairs every
+data and parity position, and removes its run directories afterward.
+
+```bash
+ECS_CORE_REAL_ROOTS=/test/disk-a,/test/disk-b,/test/disk-c,/test/disk-d \
+ECS_CORE_REAL_BYTES=4294967296 \
+cargo test --release --test real_disk \
+  four_disk_encode_decode_repair_and_publish -- --ignored --nocapture
+```
+
+The paths must be dedicated test directories. ECS Core never selects or
+formats the underlying devices.
+
 ## Engine integration gates
 
 Before N1 or N2 switches to ECS Core, each engine must additionally prove:

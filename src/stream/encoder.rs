@@ -272,7 +272,7 @@ where
                 ),
             ));
         }
-        if self.buffer.len() > 0 {
+        if !self.buffer.is_empty() {
             self.buffer.fill_zeros();
             self.process_buffered_stripe().await?;
         }
@@ -615,6 +615,20 @@ fn validate_remaining<W>(
     strict_error: Option<EcsError>,
 ) -> Result<()> {
     let available = writers.iter().filter(|writer| writer.is_some()).count();
+    if completion == CompletionPolicy::RequireAll {
+        if let Some(error) = strict_error {
+            return Err(error);
+        }
+        if available != layout.total_shards() {
+            return Err(EcsError::new(
+                EcsErrorKind::WriterFailure,
+                format!(
+                    "full completion requires {} pieces, but only {available} remain",
+                    layout.total_shards()
+                ),
+            ));
+        }
+    }
     if available < layout.data_shards() {
         return Err(EcsError::new(
             EcsErrorKind::InsufficientShards,
@@ -623,17 +637,6 @@ fn validate_remaining<W>(
                 layout.data_shards()
             ),
         ));
-    }
-    if completion == CompletionPolicy::RequireAll && available != layout.total_shards() {
-        return Err(strict_error.unwrap_or_else(|| {
-            EcsError::new(
-                EcsErrorKind::WriterFailure,
-                format!(
-                    "full completion requires {} pieces, but only {available} remain",
-                    layout.total_shards()
-                ),
-            )
-        }));
     }
     Ok(())
 }

@@ -12,6 +12,7 @@ mod macros;
 mod metrics;
 pub mod stream;
 
+pub use buffer::AlignedBuffer;
 pub use checksum::{ChecksumAlgorithm, ChecksumPolicy, Digest, Sha256Digest};
 pub use error::{EcsError, EcsErrorKind, Result};
 pub use layout::{ALIGNMENT, EcLayout};

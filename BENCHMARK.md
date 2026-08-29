@@ -21,6 +21,34 @@ cargo bench -p ecs-core --bench streaming
 
 Real engine integration must separately measure local disks, remote nodes, concurrency, tail latency, `fsync`, cancellation cleanup, and metadata commit.
 
+## Four-disk XFS gate
+
+Measured on 2026-08-28 with a generated 4 GiB source, `3+1`, 1 MiB blocks,
+and four distinct XFS HDDs. The test used ordinary Tokio files; the durable
+measurement includes piece flush, `sync_all`, atomic rename, and parent
+directory sync. It did not include HTTP, TLS, namespace, or NDX publication.
+
+| Operation | Position | Throughput |
+| --- | ---: | ---: |
+| Encode pipeline before durability sync | all | 537.34 MiB/s |
+| Encode durable publication | all | 205.74 MiB/s |
+| Degraded decode | missing data 0 | 314.66 MiB/s |
+| Degraded decode | missing data 1 | 261.91 MiB/s |
+| Degraded decode | missing data 2 | 299.14 MiB/s |
+| Degraded decode | missing parity 0 | 295.28 MiB/s |
+| Repair pipeline | data 0 | 117.50 MiB/s |
+| Repair pipeline | data 1 | 111.06 MiB/s |
+| Repair pipeline | data 2 | 97.51 MiB/s |
+| Repair pipeline | parity 0 | 110.62 MiB/s |
+| Repair durable publication | data 0 | 59.24 MiB/s |
+| Repair durable publication | data 1 | 62.76 MiB/s |
+| Repair durable publication | data 2 | 62.56 MiB/s |
+| Repair durable publication | parity 0 | 63.23 MiB/s |
+
+The complete gate passed in 169.13 seconds, including all decode and repair
+positions plus cleanup. These values describe this hardware run, not an ECS
+Core throughput ceiling.
+
 ## Large bounded stream
 
 The explicit hard suite generated a 4 GiB source without allocating the source object and encoded it as `4+2` using 1 MiB blocks and counting sinks:

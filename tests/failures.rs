@@ -33,6 +33,26 @@ async fn strict_mode_preserves_capacity_exhaustion() {
 }
 
 #[tokio::test]
+async fn strict_minimum_layout_preserves_capacity_exhaustion() {
+    let layout = EcLayout::new(1, 0, 4096).unwrap();
+    let writers = ShardWriters::new(vec![Some(MemoryWriter::failing(0, libc::ENOSPC))], vec![]);
+    let mut encoder = ErasureStreamEncoder::new(
+        layout,
+        writers,
+        layout.stripe_size() as u64,
+        EncodeOptions::default(),
+    )
+    .unwrap();
+    let error = encoder
+        .write(&vec![7u8; layout.stripe_size()])
+        .await
+        .unwrap_err();
+    assert_eq!(error.kind(), EcsErrorKind::CapacityExhausted);
+    assert_eq!(error.shard_index(), Some(0));
+    assert_eq!(error.raw_os_error(), Some(libc::ENOSPC));
+}
+
+#[tokio::test]
 async fn degraded_mode_completes_only_while_k_survives() {
     let layout = EcLayout::new(3, 2, 4096).unwrap();
     let writers = ShardWriters::new(

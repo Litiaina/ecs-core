@@ -7,14 +7,19 @@ use tokio::io::{AsyncRead, ReadBuf};
 
 use crate::layout::ALIGNMENT;
 
-pub(crate) struct AlignedBuffer {
+/// Fixed-capacity 4096-byte-aligned buffer for storage-engine I/O adapters.
+///
+/// ECS Core uses the same type internally for stripe assembly. Engines may use
+/// it when their `AsyncWrite` adapter requires aligned direct-I/O buffers.
+pub struct AlignedBuffer {
     ptr: NonNull<u8>,
     layout: Layout,
     len: usize,
 }
 
 impl AlignedBuffer {
-    pub(crate) fn new(size: usize) -> Self {
+    #[must_use]
+    pub fn new(size: usize) -> Self {
         let layout = Layout::from_size_align(size, ALIGNMENT).expect("validated ECS alignment");
         if size == 0 {
             return Self {
@@ -32,15 +37,17 @@ impl AlignedBuffer {
         }
     }
 
-    pub(crate) fn as_slice(&self) -> &[u8] {
+    #[must_use]
+    pub fn as_slice(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
 
-    pub(crate) fn as_full_slice(&self) -> &[u8] {
+    #[must_use]
+    pub fn as_full_slice(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.layout.size()) }
     }
 
-    pub(crate) fn extend_from_slice(&mut self, data: &[u8]) -> usize {
+    pub fn extend_from_slice(&mut self, data: &[u8]) -> usize {
         let copied = (self.layout.size() - self.len).min(data.len());
         unsafe {
             std::ptr::copy_nonoverlapping(data.as_ptr(), self.ptr.as_ptr().add(self.len), copied);
@@ -49,19 +56,26 @@ impl AlignedBuffer {
         copied
     }
 
-    pub(crate) fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.len = 0;
     }
 
-    pub(crate) fn len(&self) -> usize {
+    #[must_use]
+    pub fn len(&self) -> usize {
         self.len
     }
 
-    pub(crate) fn capacity(&self) -> usize {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    #[must_use]
+    pub fn capacity(&self) -> usize {
         self.layout.size()
     }
 
-    pub(crate) fn fill_zeros(&mut self) {
+    pub fn fill_zeros(&mut self) {
         let remaining = self.layout.size() - self.len;
         if remaining > 0 {
             unsafe {
@@ -71,11 +85,7 @@ impl AlignedBuffer {
         }
     }
 
-    pub(crate) async fn read_from<R>(
-        &mut self,
-        reader: &mut R,
-        max_bytes: usize,
-    ) -> std::io::Result<usize>
+    pub async fn read_from<R>(&mut self, reader: &mut R, max_bytes: usize) -> std::io::Result<usize>
     where
         R: AsyncRead + Unpin,
     {
@@ -111,6 +121,10 @@ impl Drop for AlignedBuffer {
 }
 
 unsafe impl Send for AlignedBuffer {}
+// The allocation is owned by the buffer. Shared access exposes only immutable
+// bytes, while every mutation requires `&mut self`, so Rust's aliasing rules
+// prevent concurrent mutation through this type.
+unsafe impl Sync for AlignedBuffer {}
 
 #[cfg(test)]
 mod tests {

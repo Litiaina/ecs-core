@@ -8,7 +8,7 @@ use std::time::Instant;
 use ecs_core::{
     ChecksumAlgorithm, CompletionPolicy, DecodeOptions, EcLayout, EcsErrorKind, EncodeOptions,
     ErasureStreamDecoder, ErasureStreamEncoder, ErasureStreamRepairer, ShardReaders, ShardWriters,
-    metrics_snapshot, reset_metrics,
+    metrics_snapshot,
 };
 use rand::seq::SliceRandom;
 use rand::{Rng, RngCore, SeedableRng};
@@ -679,7 +679,6 @@ async fn four_gibibyte_stream_is_bounded_by_one_stripe() {
         remaining: SOURCE_BYTES,
         position: 0,
     };
-    reset_metrics();
     let started = Instant::now();
     encoder.copy_exact(&mut source).await.unwrap();
     let output = encoder.finish().await.unwrap();
@@ -688,13 +687,18 @@ async fn four_gibibyte_stream_is_bounded_by_one_stripe() {
     for writer in output.writers.data.into_iter().chain(output.writers.parity) {
         assert_eq!(writer.unwrap().0, expected_piece_bytes);
     }
+    assert_eq!(output.report.source_bytes, SOURCE_BYTES);
+    assert_eq!(
+        output.report.stripe_count,
+        layout.stripe_count(SOURCE_BYTES)
+    );
     let metrics = metrics_snapshot();
-    assert_eq!(metrics.source_bytes, SOURCE_BYTES);
-    assert_eq!(metrics.stripes, layout.stripe_count(SOURCE_BYTES));
+    assert!(metrics.source_bytes >= SOURCE_BYTES);
+    assert!(metrics.stripes >= layout.stripe_count(SOURCE_BYTES));
     eprintln!(
         "4 GiB stream: {:.2} MiB/s, {} stripes, codec {:.2} ms, peak RSS {} KiB",
         SOURCE_BYTES as f64 / 1024.0 / 1024.0 / elapsed.as_secs_f64(),
-        metrics.stripes,
+        output.report.stripe_count,
         metrics.codec_nanoseconds as f64 / 1_000_000.0,
         peak_rss_kib(),
     );
