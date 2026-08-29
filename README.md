@@ -1,4 +1,12 @@
-# ECS Core
+<div align="center">
+  <img
+    src="https://github.com/Litiaina/litiaina-admin-webpage/blob/master/images/litiaina_icon.png?raw=true"
+    alt="Litiaina Icon"
+    width="150"
+    height="150"
+  />
+  <h1>Litiaina ECS Core</h1>
+</div>
 
 ECS Core is the **Erasure Coding Streaming Core** extracted from the proven N1 and N2 data planes. It turns one bounded byte stream into `K` data pieces and `M` parity pieces, reconstructs the original stream from any valid `K` pieces, and repairs one missing data or parity piece without loading an object into memory.
 
