@@ -125,13 +125,12 @@ where
         let source_hasher = checksum
             .filter(|policy| policy.source_checksum)
             .map(|policy| StreamHasher::new(policy.algorithm));
-        let piece_hashers = flat
-            .iter()
-            .map(|writer| {
-                writer
-                    .as_ref()
-                    .and_then(|_| checksum.map(|policy| StreamHasher::new(policy.algorithm)))
-            })
+        // Piece digests describe the deterministic EC output, not only the bytes
+        // that happened to reach a writer.  Keeping them independent from writer
+        // availability lets a distributed caller persist the expected identity of
+        // a missing/failed piece and later validate autonomous reconstruction.
+        let piece_hashers = (0..layout.total_shards())
+            .map(|_| checksum.map(|policy| StreamHasher::new(policy.algorithm)))
             .collect();
         let initially_present = flat.iter().map(Option::is_some).collect();
         let mut piece_failures = vec![None; layout.total_shards()];
@@ -425,8 +424,6 @@ where
                 self.layout,
                 self.options.completion,
                 &mut self.writers,
-                &mut self.piece_hashers,
-                &mut self.block_checksums,
                 &mut self.piece_failures,
                 &mut self.piece_bytes,
                 &slices,
@@ -443,8 +440,6 @@ where
                 self.layout,
                 self.options.completion,
                 &mut self.writers,
-                &mut self.piece_hashers,
-                &mut self.block_checksums,
                 &mut self.piece_failures,
                 &mut self.piece_bytes,
                 &slices,
@@ -528,8 +523,6 @@ where
                     raw_os_error,
                     reason: reason.clone(),
                 });
-                self.piece_hashers[index] = None;
-                self.block_checksums[index].clear();
                 self.writers[index] = None;
                 if first_strict_error.is_none() {
                     first_strict_error = Some(EcsError::from_io(
@@ -555,8 +548,6 @@ async fn write_piece_slices<W>(
     layout: EcLayout,
     completion: CompletionPolicy,
     writers: &mut [Option<W>],
-    piece_hashers: &mut [Option<StreamHasher>],
-    block_checksums: &mut [Vec<Digest>],
     piece_failures: &mut [Option<PieceFailure>],
     piece_bytes: &mut [u64],
     slices: &[&[u8]],
@@ -591,8 +582,6 @@ where
                     raw_os_error,
                     reason: reason.clone(),
                 });
-                piece_hashers[index] = None;
-                block_checksums[index].clear();
                 writers[index] = None;
                 if first_strict_error.is_none() {
                     first_strict_error = Some(EcsError::from_io(

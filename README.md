@@ -90,6 +90,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 - `CompletionPolicy::RequireAll` rejects the stream if any configured piece cannot finish. This is the normal fully protected commit boundary.
 - `CompletionPolicy::AllowReconstructable` continues only while at least `K` piece sinks remain. The report explicitly states `reconstructable=true` and `fully_protected=false`; the caller decides whether its topology permits publishing that degraded object.
 
+Piece and per-block digests describe the deterministic EC output independently
+of sink availability. A `Missing` or `Failed` piece therefore retains the
+SHA-256 identity needed to validate a later exact-slot reconstruction while
+its `bytes_written` and state still report what reached durable output.
+
 ENOSPC and EDQUOT remain distinguishable as `EcsErrorKind::CapacityExhausted`, including the raw operating-system error and piece index.
 
 ## Decode and repair

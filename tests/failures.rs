@@ -81,8 +81,37 @@ async fn degraded_mode_completes_only_while_k_survives() {
     assert!(!output.report.fully_protected);
     assert_eq!(output.report.pieces[0].state, PieceState::Failed);
     assert_eq!(output.report.pieces[3].state, PieceState::Failed);
-    assert!(output.report.pieces[0].checksum.is_none());
-    assert!(output.report.pieces[0].block_checksums.is_empty());
+    assert!(output.report.pieces[0].checksum.is_some());
+    assert_eq!(output.report.pieces[0].block_checksums.len(), 1);
+    assert!(output.report.pieces[3].checksum.is_some());
+    assert_eq!(output.report.pieces[3].block_checksums.len(), 1);
+}
+
+#[tokio::test]
+async fn missing_piece_keeps_its_deterministic_repair_identity() {
+    let layout = EcLayout::new(2, 1, 4096).unwrap();
+    let writers = ShardWriters::new(
+        vec![None, Some(MemoryWriter::default())],
+        vec![Some(MemoryWriter::default())],
+    );
+    let options = EncodeOptions {
+        completion: CompletionPolicy::AllowReconstructable,
+        ..EncodeOptions::default()
+    };
+    let source = vec![9u8; layout.stripe_size() * 2 + 17];
+    let mut encoder =
+        ErasureStreamEncoder::new(layout, writers, source.len() as u64, options).unwrap();
+    encoder.write(&source).await.unwrap();
+    let output = encoder.finish().await.unwrap();
+
+    let missing = &output.report.pieces[0];
+    assert_eq!(missing.state, PieceState::Missing);
+    assert_eq!(missing.bytes_written, 0);
+    assert!(missing.checksum.is_some());
+    assert_eq!(
+        missing.block_checksums.len(),
+        output.report.stripe_count as usize
+    );
 }
 
 #[tokio::test]
